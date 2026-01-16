@@ -1,0 +1,10 @@
+.venv
+.vscode
+
+
+/app/__pycache__
+/app/account/__pycache__
+/app/db/__pycache__
+
+
+.env
