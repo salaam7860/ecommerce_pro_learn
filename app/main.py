@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 from scalar_fastapi import get_scalar_api_reference
 
+from app.account.routers import router as account_router
+
 
 
 app = FastAPI(title="Fastapi E-Commerce Backend")
@@ -10,7 +12,7 @@ app = FastAPI(title="Fastapi E-Commerce Backend")
 async def root():
     return {"message": "Fastapi E-Commerce API"}
 
-
+app.include_router(account_router)
 
 # BACKEND TESTING
 @app.get("/scalar", include_in_schema=False)
