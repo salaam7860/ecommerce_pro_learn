@@ -44,3 +44,17 @@ class UserOut(BaseModel):
 class UserLogin(BaseModel):
     email: EmailStr
     password: str = Field(min_length=3)
+
+
+class UserLoggedIn(BaseModel):
+    id: int
+    email: EmailStr
+    loggedin: bool = False
+
+    @model_validator(mode="after")
+    def checked_loggedin(self):
+        if self.id is not None and self.id > 0 and self.email is not None:
+            self.loggedin = True
+        else:
+            self.loggedin = False
+        return self
