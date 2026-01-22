@@ -49,9 +49,9 @@ async def refresh(session: SessionDep, request: Request):
     
     tokens = await create_tokens(session, user)
 
-    response = set_response(tokens)
+    set_response(tokens)
 
-    return response
+    return user
 
 
 

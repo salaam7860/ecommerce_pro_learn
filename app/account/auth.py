@@ -34,11 +34,15 @@ def verify_password(plain_password: str, hashed_password):
 
 
 async def verify_stmt(session: AsyncSession,stmt):
+    print(f"Executing query: {stmt}")
     try:
         result = await session.scalars(stmt)
         data = result.one_or_none()
     except MultipleResultsFound:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="⚠️ Multiple users found for this id!")
+    except IntegrityError as e:
+        print(f"Database Integrity Hit: {e}")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Token creation failed")
     if not data: 
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="⚠️data is Missing")
     return data
@@ -94,7 +98,7 @@ async def create_tokens(session: AsyncSession, user: User):
         await session.commit()
         return {
             "access_token": access_token,
-            "refresh_token": refresh_token,
+            "refresh_token": refresh_token_str,
             "token_type": "bearer"
         }
     except IntegrityError as e:
@@ -115,36 +119,21 @@ def decode_token(token: str):
 
 
     
-# async def verify_refresh_token(session: AsyncSession, token: str):
+async def verify_refresh_token(session: AsyncSession, token: str):
 
-#     stmt = select(RefreshToken).where(RefreshToken.token == token)
-#     db_token = await verify_stmt(session, stmt)
+    stmt = select(RefreshToken).where(RefreshToken.token == token)
+    db_token = await verify_stmt(session, stmt)
 
-#     if db_token and not db_token.revoked:
-#         expires_at = db_token.expires_at
+    if db_token and not db_token.revoked:
+        expires_at = db_token.expires_at
 
-#         if expires_at.tzinfo is None:
-#             expires_at = expires_at.replace(timezone.utc)
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
 
-#         if expires_at > datetime.now(timezone.utc):
-#             user_stmt = select(User).where(User.id == db_token.user_id)
-#             user_result = await verify_stmt(session, user_stmt)
-#             return user_result
-#     return None
+        if expires_at > datetime.now(timezone.utc):
+            user_stmt = select(User).where(User.id == db_token.user_id)
+            user_result = await verify_stmt(session, user_stmt)
+            return user_result
+    return None
   
 
-async def verify_refresh_token(session : AsyncSession, token: str):
-  stmt = select(RefreshToken).where(RefreshToken.token == token)
-  result = await session.scalars(stmt)
-  db_refresh_token = result.first()
-
-  if db_refresh_token and not db_refresh_token.revoked:
-    expires_at = db_refresh_token.expires_at
-    if expires_at.tzinfo is None:
-      expires_at = expires_at.replace(tzinfo=timezone.utc)
-    if expires_at > datetime.now(timezone.utc):
-      user_stmt = select(User).where(User.id == db_refresh_token.user_id)
-      user_result = await session.scalars(user_stmt)
-      return user_result.first()
-    
-  return None
