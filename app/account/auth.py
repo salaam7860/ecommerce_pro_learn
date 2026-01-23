@@ -4,18 +4,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import MultipleResultsFound
 from fastapi import HTTPException, status
 from fastapi.responses import JSONResponse
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError 
 from passlib.context import CryptContext
 from sqlalchemy import select
 from decouple import config
 from uuid import uuid4
+import logging
 
 from app.account.models import RefreshToken, User
 
 
+logger = logging.getLogger(__name__)
 
 JWT_ACCESS_TOKEN_TIME_MIN = config("JWT_ACCESS_TOKEN_TIME_MIN", cast=int)
 JWT_ACCESS_TOKEN_TIME_DAY = config("JWT_ACCESS_TOKEN_TIME_DAY", cast=int)
+EMAIL_VERIFICATION_TOKEN_TIME_HOUR= config("EMAIL_VERIFICATION_TOKEN_TIME_HOUR", cast=int)
 JWT_SECRET_KEY = config("JWT_SECRET_KEY")
 JWT_ALGORITHM = config("JWT_ALGORITHM")
 
@@ -31,22 +34,16 @@ def hash_password(password: str):
 def verify_password(plain_password: str, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
 
-
-
-async def verify_stmt(session: AsyncSession,stmt):
-    print(f"Executing query: {stmt}")
+async def get_single_result(session: AsyncSession, stmt):
     try:
         result = await session.scalars(stmt)
-        data = result.one_or_none()
+        return result.one_or_none()
     except MultipleResultsFound:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="⚠️ Multiple users found for this id!")
-    except IntegrityError as e:
-        print(f"Database Integrity Hit: {e}")
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Token creation failed")
-    if not data: 
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="⚠️data is Missing")
-    return data
-
+        logger.error("Multiple results found for a unique qurery.")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Database consistency error.")
+    except SQLAlchemyError:
+        logger.exception("Database fetch error")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Database error occured." )
 
 
 # Set Response 
@@ -108,11 +105,16 @@ async def create_tokens(session: AsyncSession, user: User):
     
 def decode_token(token: str):
     try:
-        return jwt.decode(token, JWT_SECRET_KEY, algorithms=JWT_ALGORITHM)
+        # 1. Algorithms ko list mein rakha
+        # 2. Key aur token ko print karke verify karein
+        return jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
     except ExpiredSignatureError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token has Expired.")
-    except JWTError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Token")
+        raise HTTPException(status_code=401, detail="Token has Expired.")
+    except Exception as e:
+        # YAHAN ASLI MASLA PRINT HOGA
+        print(f"DEBUG: JWT Decode Error Type: {type(e)}")
+        print(f"DEBUG: JWT Decode Error Message: {str(e)}")
+        raise HTTPException(status_code=401, detail=f"Invalid Token: {str(e)}")
     
 
 # REFRESH TOKEN
@@ -122,18 +124,58 @@ def decode_token(token: str):
 async def verify_refresh_token(session: AsyncSession, token: str):
 
     stmt = select(RefreshToken).where(RefreshToken.token == token)
-    db_token = await verify_stmt(session, stmt)
+    db_token = await get_single_result(session, stmt)
+    
+    if not db_token or db_token.revoked:
+        return None
+    expires_at = db_token.expires_at
 
-    if db_token and not db_token.revoked:
-        expires_at = db_token.expires_at
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
 
-        if expires_at.tzinfo is None:
-            expires_at = expires_at.replace(tzinfo=timezone.utc)
-
-        if expires_at > datetime.now(timezone.utc):
-            user_stmt = select(User).where(User.id == db_token.user_id)
-            user_result = await verify_stmt(session, user_stmt)
-            return user_result
+    if expires_at > datetime.now(timezone.utc):
+        user_stmt = select(User).where(User.id == db_token.user_id)
+        return await get_single_result(user_stmt)
     return None
   
+# CREATE EMAIL VERIFICATION TOKEN
+def create_email_verification_token(user_id: int):
+    expire = datetime.now(timezone.utc) + timedelta(hours=EMAIL_VERIFICATION_TOKEN_TIME_HOUR)
+    encode = {"sub": str(user_id), "type": "verify_email", "exp": expire}
+    return jwt.encode(encode, JWT_SECRET_KEY, JWT_ALGORITHM)
+
+
+# VERIFY EMAIL TOKEN AND GET USER ID 
+def verify_email_token_and_get_user_id(token: str, token_type: str):
+    # DECODE THE TOKEN
+    payload = decode_token(token)
+
+    print(payload)
+
+    if not payload or payload.get("type") != token_type:
+        return None
+   
+    return int(payload.get("sub"))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

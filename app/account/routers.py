@@ -3,7 +3,7 @@ from fastapi.responses import JSONResponse
 
 from app.account.schemas import UserCreate, UserOut, UserLogin, UserLoggedIn
 from app.account.auth import create_tokens, set_response,verify_refresh_token
-from app.account.services import authenticate_user, create_user
+from app.account.services import authenticate_user, create_user, email_verification_send, verify_email_token
 from app.account.dependency import not_refresh_token
 from app.account.dependency import is_authenticated
 from app.db.config import SessionDep
@@ -49,9 +49,29 @@ async def refresh(session: SessionDep, request: Request):
     
     tokens = await create_tokens(session, user)
 
-    set_response(tokens)
+    response = JSONResponse(content={"message": "Login Successful"})
+    response.set_cookie(
+        key="access_token",
+        value=tokens["access_token"],
+        httponly=True, secure=True, samesite="lax", max_age=60*60*24*1)
+    
+    response.set_cookie(
+        key="refresh_token",
+        value=tokens["refresh_token"],
+        httponly=True, secure=True, samesite="lax", max_age=60*60*24*7)
 
     return user
+
+
+
+@router.post("/send-verification-email")
+async def send_verification_email(user: User=Depends(is_authenticated)):
+    return await email_verification_send(user)
+
+
+@router.get("/verify-email")
+async def verify_email(session: SessionDep, token: str):
+    return await verify_email_token(session, token)
 
 
 
