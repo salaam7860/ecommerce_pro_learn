@@ -9,12 +9,11 @@ from passlib.context import CryptContext
 from sqlalchemy import select
 from decouple import config
 from uuid import uuid4
-import logging
 
 from app.account.models import RefreshToken, User
+from app.account.log_config import logger
 
 
-logger = logging.getLogger(__name__)
 
 JWT_ACCESS_TOKEN_TIME_MIN = config("JWT_ACCESS_TOKEN_TIME_MIN", cast=int)
 JWT_ACCESS_TOKEN_TIME_DAY = config("JWT_ACCESS_TOKEN_TIME_DAY", cast=int)
@@ -107,13 +106,16 @@ def decode_token(token: str):
     try:
         # 1. Algorithms ko list mein rakha
         # 2. Key aur token ko print karke verify karein
+        # JWT decode karte waqt logger use karna
+        logger.debug(f"Decoding JWT token: {token}")
         return jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
-    except ExpiredSignatureError:
+    except ExpiredSignatureError as e:
+        logger.warning(f"Token expired: {str(e)}")
         raise HTTPException(status_code=401, detail="Token has Expired.")
     except Exception as e:
-        # YAHAN ASLI MASLA PRINT HOGA
-        print(f"DEBUG: JWT Decode Error Type: {type(e)}")
-        print(f"DEBUG: JWT Decode Error Message: {str(e)}")
+        # Yahan logger error message log karega
+        logger.error(f"JWT Decode Error Type: {type(e).__name__}")
+        logger.error(f"JWT Decode Error Message: {str(e)}")
         raise HTTPException(status_code=401, detail=f"Invalid Token: {str(e)}")
     
 
@@ -135,7 +137,7 @@ async def verify_refresh_token(session: AsyncSession, token: str):
 
     if expires_at > datetime.now(timezone.utc):
         user_stmt = select(User).where(User.id == db_token.user_id)
-        return await get_single_result(user_stmt)
+        return await get_single_result(session, user_stmt)
     return None
   
 # CREATE EMAIL VERIFICATION TOKEN

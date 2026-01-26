@@ -4,8 +4,8 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 import logging
 
-from app.account.auth import create_email_verification_token, verify_email_token_and_get_user_id, verify_password
-from app.account.schemas import UserCreate, UserLogin, UserOut
+from app.account.auth import create_email_verification_token, hash_password, verify_email_token_and_get_user_id, verify_password
+from app.account.schemas import PasswordChangeResquest, UserCreate, UserLogin, UserOut
 from app.account.models import User
 from app.account.db_commits import database_commit, db_get_one
 
@@ -54,7 +54,14 @@ async def authenticate_user(session: AsyncSession, user_login: UserLogin):
 
 # send Email verification 
 
-async def email_verification_send(user: User):
+async def email_verification_send(session: AsyncSession, user: User):
+    stmt = select(User).where(User.id == user.id)
+    user = await db_get_one(session, stmt)
+
+    if user.is_verified:
+        logger.info(f"User id: {user.id} attempted verification but is already verified.")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"User_id: {user.id}, Email is already Verified.")
+
     token = create_email_verification_token(user.id)
     link = f"http://localhost:8000/account/verify?token={token}"
     print(f"Verify your email: {link}")
@@ -81,6 +88,24 @@ async def verify_email_token(session: AsyncSession, token: str):
     await database_commit(session, user)
     return {"msg": "Email is successfully Verified."}
 
+
+async def change_password(session: AsyncSession, user: User, data: PasswordChangeResquest):
+
+    if not verify_password(data.old_password, user.hashing_password):
+        logger.warning("Incorrect password", extra={"user_id": user.id})
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Password isn't correct.")
+
+    if verify_password(data.new_password, user.hashing_password):
+        logger.warning("Same password as old.", extra={"user_id": user.id})
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="New password must be different.")
+
+    user.hashing_password = hash_password(data.new_password)
+
+    session.add(user)
+
+    await database_commit(session, user)
+
+    return {"Message": f"User: {user.id}, The password has been renewed"}
 
 
 

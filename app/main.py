@@ -1,7 +1,9 @@
 from fastapi import FastAPI
 from scalar_fastapi import get_scalar_api_reference
 
+
 from app.account.routers import router as account_router
+
 
 
 

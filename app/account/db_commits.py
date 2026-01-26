@@ -1,12 +1,12 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
-import logging
+
+from app.account.log_config import logger
 
 
 
-# LOGGING
-logger = logging.getLogger(__name__)
+
 
 # DATABASE INSTANCE -- COMMIT 
 async def database_commit(session: AsyncSession, instance):
