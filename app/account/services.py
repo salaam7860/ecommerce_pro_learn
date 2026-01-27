@@ -4,8 +4,8 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 import logging
 
-from app.account.auth import create_email_verification_token, hash_password, verify_email_token_and_get_user_id, verify_password
-from app.account.schemas import PasswordChangeResquest, UserCreate, UserLogin, UserOut
+from app.account.auth import create_email_verification_token, hash_password, password_reset_token, verify_email_token_and_get_user_id, verify_password
+from app.account.schemas import ForgetPasswordReset, PasswordChangeRequest, PasswordResetNew, UserCreate, UserLogin, UserOut
 from app.account.models import User
 from app.account.db_commits import database_commit, db_get_one
 
@@ -88,8 +88,8 @@ async def verify_email_token(session: AsyncSession, token: str):
     await database_commit(session, user)
     return {"msg": "Email is successfully Verified."}
 
-
-async def change_password(session: AsyncSession, user: User, data: PasswordChangeResquest):
+# CHANGE PASSWORD
+async def change_password(session: AsyncSession, user: User, data: PasswordChangeRequest):
 
     if not verify_password(data.old_password, user.hashing_password):
         logger.warning("Incorrect password", extra={"user_id": user.id})
@@ -107,6 +107,44 @@ async def change_password(session: AsyncSession, user: User, data: PasswordChang
 
     return {"Message": f"User: {user.id}, The password has been renewed"}
 
+
+
+
+# FORGET PASSWORD
+async def password_reset(session: AsyncSession, data: ForgetPasswordReset):
+    stmt = select(User).where(User.email == data.email)
+    user = await db_get_one(session, stmt)
+
+    if not user:
+        logger.warning(f"Invalid Email")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invalid Email")
+    
+    token = password_reset_token(user.id)
+    link = f"http://localhost:8000/account/verify?Password_Reset={token}"
+    print(f'Reset Your Password: {link}')
+    return {"msg": "Link for reset password has been sent."}
+
+# VERIFY PASSWORD RESET TOKEN
+async def verify_password_token(session: AsyncSession, data: PasswordResetNew):
+    user_id =  verify_email_token_and_get_user_id(data.token, "password_reset")
+
+    if not user_id:
+        logger.warning("Token Invalid or Expired Token")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token Invalid or Expired Token")
+    
+    stmt = select(User).where(User.id == user_id)
+    user = await db_get_one(session, stmt)
+
+    if not user:
+        logger.warning("User not Found.")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not Found.")
+    
+    user.hashing_password = hash_password(data.new_password)
+
+    session.add(user)
+    await database_commit(session, user)
+    
+    return {"msg": "Password has been reset."}
 
 
 

@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 
-from app.account.schemas import PasswordChangeResquest, UserCreate, UserOut, UserLogin, UserLoggedIn
+from app.account.schemas import PasswordChangeRequest, PasswordResetNew, UserCreate, UserOut, UserLogin, UserLoggedIn, ForgetPasswordReset
 from app.account.auth import create_tokens, set_response,verify_refresh_token
-from app.account.services import authenticate_user, change_password, create_user, email_verification_send, verify_email_token
+from app.account.services import authenticate_user, change_password, create_user, email_verification_send, password_reset, verify_email_token, verify_password_token
 from app.account.dependency import not_refresh_token
 from app.account.dependency import is_authenticated
 from app.db.config import SessionDep
@@ -74,8 +74,15 @@ async def verify_email(session: SessionDep, token: str):
     return await verify_email_token(session, token)
 
 @router.post("/change-password")
-async def password_change(session: SessionDep,data: PasswordChangeResquest, user: User=Depends(is_authenticated)):
+async def password_change(session: SessionDep,data: PasswordChangeRequest, user: User=Depends(is_authenticated)):
     return await change_password(session, user, data)
 
+@router.post("/password-reset")
+async def reset_password(session: SessionDep, data: ForgetPasswordReset):
+    return await password_reset(session, data)
+
+@router.post("/verify-token-reset-password")
+async def reset_password_verification_token(session: SessionDep, data: PasswordResetNew):
+    return await  verify_password_token(session, data)
 
 

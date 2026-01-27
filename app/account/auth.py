@@ -18,6 +18,7 @@ from app.account.log_config import logger
 JWT_ACCESS_TOKEN_TIME_MIN = config("JWT_ACCESS_TOKEN_TIME_MIN", cast=int)
 JWT_ACCESS_TOKEN_TIME_DAY = config("JWT_ACCESS_TOKEN_TIME_DAY", cast=int)
 EMAIL_VERIFICATION_TOKEN_TIME_HOUR= config("EMAIL_VERIFICATION_TOKEN_TIME_HOUR", cast=int)
+PASSWORD_RESET_TOKEN= config("PASSWORD_RESET_TOKEN", cast=int)
 JWT_SECRET_KEY = config("JWT_SECRET_KEY")
 JWT_ALGORITHM = config("JWT_ALGORITHM")
 
@@ -159,7 +160,15 @@ def verify_email_token_and_get_user_id(token: str, token_type: str):
    
     return int(payload.get("sub"))
 
-
+# CREATE TOKEN FOR PASSWORD RESET 
+def password_reset_token(user_id: int):
+    expire = datetime.now(timezone.utc) + timedelta(hours=PASSWORD_RESET_TOKEN)
+    encode = {
+        "sub": str(user_id),
+        "exp": expire,
+        "type": "password_reset"
+    }
+    return jwt.encode(encode, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
 
 
 

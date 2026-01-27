@@ -1,4 +1,5 @@
 from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
+import string
 
 from app.account.auth import hash_password
 
@@ -59,7 +60,7 @@ class UserLoggedIn(BaseModel):
             self.loggedin = False
         return self
     
-class PasswordChangeResquest(BaseModel):
+class PasswordChangeRequest(BaseModel):
     old_password: str = Field(...)
     new_password: str = Field(..., min_length=3) 
 
@@ -71,4 +72,27 @@ class PasswordChangeResquest(BaseModel):
             raise ValueError("Password must contain both uppercase and lowercase letters")
         if not any(char.isdigit() for char in value):
             raise ValueError("Password must contain at least one digit")
+        if not any(char in string.punctuation for char in value):
+            raise ValueError("Your password must contain at least one special character")
+        return value
+    
+
+class ForgetPasswordReset(BaseModel):
+    email: EmailStr
+
+
+class PasswordResetNew(BaseModel):
+    token: str
+    new_password: str = Field(..., min_length=3)
+
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_new_password_strength(cls, value: str) ->str:
+        if value.lower() == value or value.upper() == value:
+            raise ValueError("Password must contain both uppercase and lowercase letters")
+        if not any(char.isdigit() for char in value):
+            raise ValueError("Password must contain at least one digit")
+        if not any(char in string.punctuation for char in value):
+            raise ValueError("Your password must contain at least one special character")
         return value
