@@ -3,7 +3,7 @@ from scalar_fastapi import get_scalar_api_reference
 
 
 from app.account.routers import router as account_router
-
+from app.product.routers.category import router as category_router
 
 
 
@@ -15,6 +15,7 @@ async def root():
     return {"message": "Fastapi E-Commerce API"}
 
 app.include_router(account_router)
+app.include_router(category_router)
 
 # BACKEND TESTING
 @app.get("/scalar", include_in_schema=False)
