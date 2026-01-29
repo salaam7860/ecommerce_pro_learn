@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy import String, Boolean, DateTime, ForeignKey
+from sqlalchemy import String, Boolean, DateTime, ForeignKey, TIMESTAMP, text
 from datetime import datetime, timezone
 from app.db.base import Base
 
@@ -9,27 +9,30 @@ class User(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
-    hashing_password: Mapped[str]= mapped_column(String(255), nullable=False)
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
-    is_verified: Mapped[bool] = mapped_column(Boolean, default=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),onupdate=lambda: datetime.now(timezone.utc)) # DON'T USE DATETIME, USE TIMESTAMP(timezone=True),
+    hashing_password: Mapped[str] = mapped_column(String(255), nullable=False)
 
-    refresh_tokens: Mapped[list["RefreshToken"]] = relationship("RefreshToken", back_populates="user", cascade="all, delete-orphan") #cascade="all"	Parent actions child pe automatically apply, delete-orphan	Jo token orphan ho jaye (user se detach) → delete ho jaye
+    is_active: Mapped[bool] = mapped_column(Boolean, server_default="1")
+    is_admin: Mapped[bool] = mapped_column(Boolean, server_default="0")
+    is_verified: Mapped[bool] = mapped_column(Boolean, server_default="0")
+
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP,server_default=text("CURRENT_TIMESTAMP"),nullable=False)
+
+    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP,server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"),nullable=False)
+
+    refresh_tokens: Mapped[list["RefreshToken"]] = relationship("RefreshToken",back_populates="user",cascade="all, delete-orphan") #cascade="all"	Parent actions child pe automatically apply, delete-orphan	Jo token orphan ho jaye (user se detach) → delete ho jaye
 
 
 class RefreshToken(Base):
     __tablename__ = "refresh_tokens"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"),nullable=False)
     token: Mapped[str] = mapped_column(String(255), nullable=False)
-    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    revoked: Mapped[bool] = mapped_column(Boolean, default=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    expires_at: Mapped[datetime] = mapped_column(TIMESTAMP, nullable=False)
+    revoked: Mapped[bool] = mapped_column(Boolean, server_default="0")
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP,server_default=text("CURRENT_TIMESTAMP"),nullable=False)
 
-    user: Mapped["User"]= relationship("User", back_populates="refresh_tokens") #back_populates="user"	Do-way connection (tokens → user, user → tokens)
+    user: Mapped["User"] = relationship("User", back_populates="refresh_tokens") #back_populates="user"	Do-way connection (tokens → user, user → tokens)
 
 
 

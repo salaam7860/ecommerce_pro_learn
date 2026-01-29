@@ -1,4 +1,4 @@
-from fastapi import HTTPException, status, Request
+from fastapi import Depends, HTTPException, status, Request
 from sqlalchemy import select
 from sqlalchemy.exc import MultipleResultsFound
 from jose import ExpiredSignatureError
@@ -69,3 +69,8 @@ async def is_authenticated(session: SessionDep, request: Request):
     return user
 
 
+async def require_admin(user: User = Depends(is_authenticated)):
+    if not user.is_admin:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
+    return user
+     

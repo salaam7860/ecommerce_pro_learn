@@ -10,6 +10,7 @@ from sqlalchemy import select
 from decouple import config
 from uuid import uuid4
 
+from app.account.db_commits import database_commit, db_get_one
 from app.account.models import RefreshToken, User
 from app.account.log_config import logger
 
@@ -169,6 +170,15 @@ def password_reset_token(user_id: int):
         "type": "password_reset"
     }
     return jwt.encode(encode, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
+
+async def revoke_refresh_token(session: AsyncSession, token: str):
+    stmt = select(RefreshToken).where(RefreshToken.token==token)
+    db_token = await db_get_one(session, stmt)
+
+    if db_token:
+        db_token.revoked = True
+        await database_commit(session, db_token)
+        
 
 
 
