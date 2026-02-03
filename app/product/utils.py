@@ -14,6 +14,9 @@ async def save_upload_file(upload_file: UploadFile, sub_dir: str)->str:
 
     ALLOWED_EXTENSION = [".jpg", ".jpeg", ".png", ".pdf"]
 
+    if not upload_file or not upload_file.filename:
+        return None
+
     # create file extension
     ext = Path(upload_file.filename).suffix.lower()
 
