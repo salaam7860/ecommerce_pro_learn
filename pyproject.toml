@@ -14,5 +14,6 @@ dependencies = [
     "python-decouple>=3.8",
     "python-jose[cryptography]>=3.5.0",
     "scalar-fastapi>=1.6.0",
+    "slugify>=0.0.1",
     "sqlalchemy[asyncio]>=2.0.45",
 ]

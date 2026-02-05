@@ -41,8 +41,9 @@ class Product(Base):
     categories: Mapped[list["Category"]] = relationship(
         "Category",
         secondary=product_category_table,
-        back_populates="products"
-    )
+        back_populates="products",
+  
+    ) # lazy="selectin"
     
 
 
@@ -56,8 +57,9 @@ class Category(Base):
     products: Mapped[list["Product"]] = relationship(
         "Product",
         secondary=product_category_table,
-        back_populates="categories"
-    )
+        back_populates="categories",
+        
+    ) # lazy="selectin"
 
     
 

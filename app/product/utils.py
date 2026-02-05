@@ -68,5 +68,7 @@ async def save_upload_file(upload_file: UploadFile, sub_dir: str)->str:
     return str(file_path)
 
 
-def generate_slug(text: str)->str:
+def generate_slug(text: str) -> str:
+    if not text:
+        return ""
     return slugify(text)

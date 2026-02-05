@@ -1,0 +1,29 @@
+# 1. Automatic Line Ending Detection
+# Git automatically detects text files and normalizes them to LF in the repo.
+* text=auto
+
+# 2. Force Python files to use LF 
+# Important for Alembic migrations and cross-platform consistency.
+*.py text eol=lf
+*.toml text eol=lf
+*.lock text eol=lf
+*.sql text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+
+# 3. Web & Config files
+*.js text eol=lf
+*.css text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+.gitignore text eol=lf
+.env* text eol=lf
+
+# 4. Binary Files (Don't try to fix line endings here)
+# Graphics and compiled files should be treated as binary.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pyc binary
